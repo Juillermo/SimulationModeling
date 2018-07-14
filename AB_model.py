@@ -1,4 +1,4 @@
-from random import randint, random, shuffle, normalvariate
+from random import random, shuffle, normalvariate, choices, choice
 from itertools import combinations
 import networkx as nx
 import numpy as np
@@ -11,7 +11,7 @@ class Agent:
     L = None
     a = None
 
-    def __init__(self, effort=randint(0, 1)):
+    def __init__(self, effort):
         self.payoff = None
         if effort:
             self.S = Agent.H
@@ -28,6 +28,9 @@ class Agent:
 
     def receive_mark(self, mark):
         self.payoff = mark - Agent.a * self.S
+
+    def __str__(self):
+        return "S:" + str(self.S) + " payoff=" + str(self.payoff) + " node:" + str(self.node)
 
 
 class Group:
@@ -110,6 +113,7 @@ class Pop_Graph(Pop):
     alpha = None
 
     def __init__(self, n_agents, parameters):
+        self.copying = parameters["copying"]
         super().__init__(n_agents)
         shuffle(self.agents)
 
@@ -157,35 +161,26 @@ class Pop_Graph(Pop):
     def copy_strategies(self):
         def copy_by_friendship():
             for agent in self.agents:
-                node = agent.node
+                links_raw = self.graph[agent.node]
+                weights = np.array([el["weight"] for el in links_raw.values()])
 
-                min_link = min(self.graph[node], key=lambda link: self.graph[node][link]["weight"])
-                min_weight = self.graph[node][min_link]["weight"]
+                link = choices(population=list(links_raw.keys()), weights=weights - min(weights))[0]
 
-                tot = 0
-                for link in self.graph[node]:
-                    weight = self.graph[node][link]["weight"]
-                    tot += weight - min_weight
-
-                chosen = tot * random()
-                # print("Chosen :"+str(chosen))
-                # print("Tot :" + str(tot))
-                add = 0
-                for link in self.graph[node]:
-                    weight = self.graph[node][link]["weight"]
-                    add += weight - min_weight
-                    if chosen < add:
-                        agent.copy_payoff = self.graph.node[link].payoff
-                        agent.copy_S = self.graph.node[link].S
+                agent.copy_payoff = self.graph.node[link].payoff
+                agent.copy_S = self.graph.node[link].S
 
         def random_copying():
             for agent in self.agents:
-                reference = self.agents[randint(0, len(self.agents) - 1)]
+                reference = choice(self.agents)
                 agent.copy_payoff = reference.payoff
                 agent.copy_S = reference.S
 
-        #copy_by_friendship()
-        random_copying()
+        if self.copying == "friendship":
+            copy_by_friendship()
+        elif self.copying == "random":
+            random_copying()
+        else:
+            raise Exception("Copying behaviour not specified")
 
         copyh = 0
         copyl = 0

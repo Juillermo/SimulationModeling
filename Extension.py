@@ -1,3 +1,4 @@
+from itertools import combinations
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -36,6 +37,7 @@ def extension(parameters, T, folder_name=None, n_groups=20):
     for t in range(T):
         if folder_name:
             graph.draw_image(folder_name, t)
+            print("t = "+str(t))
 
         for j, group in enumerate(groups):
             # Form groups
@@ -63,21 +65,8 @@ def extension(parameters, T, folder_name=None, n_groups=20):
     return graph, h, marks, copyh, copyl
 
 
-def run_simple():
-    parameters = {
-        "a": 0.2,
-        "n": 6,
-        "beta": 0.1,
-        "h0": 0.5,
-        "L": 0,
-        "p": 0.1,
-        "k": 6,
-    }
+def run_simple(parameters, T, n_iter, folder_name):
     n_groups = 20
-    T = 150
-    folder_name = "cachis"
-
-    n_iter = 50
 
     h = np.zeros((n_iter, T + 1))
     marks = np.zeros((n_iter, T, n_groups))
@@ -94,6 +83,7 @@ def run_simple():
     # Plotting
     hstd = h.std(axis=0)
     hstd[::2] = 0
+    hstd[1::4] = 0
 
     fig, ax = plt.subplots(2, 2, figsize=(14, 10))
     ax0 = ax[0][0]
@@ -108,10 +98,11 @@ def run_simple():
     ax1.set(ylim=0, xlabel="t", ylabel="h(t)")
 
     plot_marks(marks, T, n_iter, ax2)
+    ax2.set(ylim=[15, 20])
 
     ax3.plot(copyh.mean(axis=0), label='H copying')
     ax3.plot(copyl.mean(axis=0), label='L copying')
-    ax3.set(xlabel="t", ylabel="n")
+    ax3.set(xlabel="t", ylabel="n", ylim=[0, 0.5])
     ax3.legend()
 
     fig.show()
@@ -120,18 +111,20 @@ def run_simple():
 
 
 def compute_equilibrium(h):
-    T = len(h)
-    for t, ht in enumerate(h):
+    T = len(h) - 1
+
+    h_buff = np.zeros(4)
+    for t, ht in enumerate(h[::-1]):
         band = 0.005
-        if t > 2:
-            if abs(ht - h_prev) > band or abs(h_prev2 - h_prev) > band or abs(ht - h_prev2) > band or abs(
-                    h_prev2 - h_prev3) > band or abs(h_prev - h_prev3) > band or abs(ht - h_prev3) > band:
-                teq = T - t
-                print(T - t)
-                return teq
-        h_prev = ht
-        h_prev2 = h_prev
-        h_prev3 = h_prev2
+        if t > len(h_buff):
+            for h1, h2 in combinations(h_buff, 2):
+                if abs(h1 - h2) > band:
+                    teq = T - t
+                    print(T - t)
+                    return teq
+
+        h_buff[1:] = h_buff[:-1]
+        h_buff[0] = ht
 
     return 0
 
@@ -170,7 +163,7 @@ def h0_analysis(parameters, ax0, ax, ax1):
         for i in range(n_iter):
             _, h[i, k, :], _, _, _ = extension(parameters, T=T, folder_name=None)
 
-        teq[k] = compute_equilibrium(h[:, k, :].mean(axis=0)[::-1])
+        teq[k] = compute_equilibrium(h[:, k, :].mean(axis=0))
 
     # Average over iterations
     std8 = h[:, :, 8].std(axis=0)
@@ -216,7 +209,7 @@ def n_analysis(parameters, ax0, ax, ax1):
             _, h[i, k, :], _, _, _ = extension(parameters, T=T, folder_name=None)
 
         # Compute equilibrium time
-        teq[k] = compute_equilibrium(h[:, k, :].mean(axis=0)[::-1])
+        teq[k] = compute_equilibrium(h[:, k, :].mean(axis=0))
 
     # Average over iterations
     std8 = h[:, :, 8].std(axis=0)
@@ -247,8 +240,8 @@ def a_analysis(parameters, ax0, ax, ax1):
     T = 1500
     n_iter = 20
 
-    K = 6
-    avec = np.linspace(0, 1, K)
+    K = 5
+    avec = np.linspace(0.15, 0.2, K)
 
     h = np.zeros((n_iter, K, T + 1))
     teq = np.zeros(K)
@@ -262,7 +255,7 @@ def a_analysis(parameters, ax0, ax, ax1):
             _, h[i, k, :], _, _, _ = extension(parameters, T=T, folder_name=None)
 
         # Compute equilibrium time
-        teq[k] = compute_equilibrium(h[:, k, :].mean(axis=0)[::-1])
+        teq[k] = compute_equilibrium(h[:, k, :].mean(axis=0))
 
     # Average over iterations
     std8 = h[:, :, 8].std(axis=0)
@@ -298,25 +291,27 @@ if __name__ == "__main__":
         "L": 0,
         "p": 0.1,
         "k": 6,
+        "copying": "friendship"
     }
     ### Graph testing
     # Pop.h0 = parameters["h0"]
     # pop = Pop_Graph(120, parameters)
 
     ### Single run
-    # graph, h, m, ch, cl = extension(parameters, T=150, folder_name="gaviota", n_groups=20)
+    #graph, h, m, ch, cl = extension(parameters, T=200, folder_name=None, n_groups=20)
 
     ### Plotting
     ## Simple analysis of model (for Figure 6)
-    # h, marks, copyh, copyl = run_simple()
+    # parameters["a"] = 0
+    h, marks, copyh, copyl = run_simple(parameters, T=200, n_iter=5, folder_name=None)
 
     ## Parameter analysis
-    fig, ax = plt.subplots(1, 3, figsize=(20, 6))
+    # fig, ax = plt.subplots(1, 3, figsize=(20, 6))
     # fig, ax = plt.subplots(3, 3, figsize=(10, 10))
     # h0_analysis(parameters, ax[0], ax[1], ax[2])
     # h0_analysis(parameters, ax[0][0], ax[0][1], ax[0][2])
-    a_analysis(parameters, ax[0], ax[1], ax[2])
+    # a_analysis(parameters, ax[0], ax[1], ax[2])
     # a_analysis
     # n_analysis(parameters, ax[0], ax[1], ax[2])
     # n_analysis(ax[2][0], ax[2][1])
-    fig.show()
+    # fig.show()
