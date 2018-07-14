@@ -15,3 +15,6 @@ modes: everybody cooperates or everybody defects, depending
 on the model parameters. Finally, a more complex model with
 a network topology is proposed and simulated, showing possible
 equilibriums at mixed states in the population.
+
+![alt text](https://raw.githubusercontent.com/Juillermo/group-coursework-study/master/results/toy2.png)
+![alt text](https://raw.githubusercontent.com/Juillermo/group-coursework-study/master/results/a0.png)
